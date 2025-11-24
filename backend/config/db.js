@@ -1,24 +1,13 @@
-const { MongoClient } = require("mongodb");
-require("dotenv").config();
+const mongoose = require('mongoose');
 
-const client = new MongoClient(process.env.CONNECTION_URL);
-
-async function main() {
+const connectDB = async () => {
   try {
-    // Connect to server
-    await client.connect();
-    console.log("✅ Connected to MongoDB Server!");
-
-    // Choose database
-    const db = client.db("attendanceDB");
-
-    // Test insert example
-    const result = await db.collection("test").insertOne({ message: "Hello MongoDB" });
-    console.log("Inserted:", result.insertedId);
-
-  } catch (err) {
-    console.error("❌ MongoDB Error:", err);
+    const conn = await mongoose.connect(process.env.CONNECTION_URL);
+    console.log('Connected to MongoDB at:', conn.connection.host);
+  } catch (error) {
+    console.error('Database connection error:', error);
+    process.exit(1);
   }
-}
+};
 
-module.exports = main
+module.exports = connectDB;
