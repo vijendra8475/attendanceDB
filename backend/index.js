@@ -22,6 +22,7 @@ app.get("/", (req, res) => {
 
 app.use("/admin", require("./routes/admin.routes"));
 app.use("/user", require("./routes/user.routes"));
+app.use("/attendance", require("./routes/attendance.routes"));
 
 app.listen(PORT, () => {
     console.log(process.env.CONNECTION_URL);
