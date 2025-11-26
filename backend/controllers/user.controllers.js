@@ -1,36 +1,5 @@
 const User = require('../models/user.model');
 
-const createUser = async (req, res) => {
-    try {
-        const { email, phone, name, username } = req.body;
-
-        if (!email || !phone || !name || !username)
-            return res.status(400).json({ message: 'All fields are required' });
-
-        const exists = await User.findOne({ email });
-
-        if (exists)
-            return res.status(409).json({ message: 'User already exists' });
-
-        const user = await User.create({
-            name,
-            username,
-            email,
-            phone,
-            joining: Date.now(),
-            imageUrl: "default.png"
-        });
-
-        return res.status(201).json({
-            message: 'User registered successfully',
-            user
-        });
-
-    } catch (error) {
-        return res.status(500).json({ message: "Server error", error });
-    }
-};
-
 const userLogin = async (req, res) => {
     try {
         const { email } = req.body;
@@ -53,5 +22,21 @@ const userLogin = async (req, res) => {
     }
 };
 
-module.exports = { createUser, userLogin };
+const checkAttendance = async (req, res) => {
+    const { user } = req.body;
+
+    if (!user) return res.status(400).json({ message: 'User required' });
+
+    const attendance = await User.findById(user)
+
+    if (!attendance.length === 0)
+        return res.status(400).json({ message: 'No Attendance found' });
+
+    return res.status(200).json({
+        message: 'User Attendance',
+        data: attendance
+    })
+}
+
+module.exports = { checkAttendance, userLogin };
 
