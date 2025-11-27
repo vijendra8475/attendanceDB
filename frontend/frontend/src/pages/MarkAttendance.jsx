@@ -9,22 +9,21 @@ export default function MarkAttendance() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
+  const [feedback, setFeedback] = useState({ message: "", isError: false });
 
   useEffect(() => {
-    let mounted = true;
-    api
-      .get("/students")
-      .then((res) => {
-        if (mounted) setStudents(res.data || []);
-      })
-      .catch(() => {
-        if (mounted) setStudents([]);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-    return () => (mounted = false);
+    const fetchStudents = async () => {
+      try {
+        const res = await api.get("/students");
+        setStudents(res.data || []);
+      } catch (err) {
+        setStudents([]);
+        setFeedback({ message: "Failed to load students.", isError: true });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStudents();
   }, []);
 
   // store checked ids
@@ -41,16 +40,17 @@ export default function MarkAttendance() {
 
   const handleSave = async () => {
     setSaving(true);
-    setMessage("");
+    setFeedback({ message: "", isError: false });
     try {
       const payload = {
         date: selectedDate,
         present: Array.from(presentIds),
       };
       await api.post("/attendance/mark", payload);
-      setMessage("Attendance saved.");
+      setFeedback({ message: "Attendance saved successfully.", isError: false });
+      setPresentIds(new Set()); // Clear selection on successful save
     } catch (err) {
-      setMessage(err?.response?.data?.message || "Save failed");
+      setFeedback({ message: err?.response?.data?.message || "Save failed. Please try again.", isError: true });
     } finally {
       setSaving(false);
     }
@@ -83,7 +83,9 @@ export default function MarkAttendance() {
       ) : (
         <div className="bg-white rounded shadow p-4">
           {students.length === 0 ? (
-            <div>No students found.</div>
+            <div>
+              {feedback.isError ? feedback.message : "No students found."}
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {students.map((st) => (
@@ -117,7 +119,11 @@ export default function MarkAttendance() {
         >
           {saving ? "Saving..." : "Save Attendance"}
         </button>
-        <div className="text-sm text-gray-600">{message}</div>
+        {feedback.message && (
+          <div className={`text-sm ${feedback.isError ? 'text-red-600' : 'text-gray-600'}`}>
+            {feedback.message}
+          </div>
+        )}
       </div>
     </div>
   );

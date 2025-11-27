@@ -35,4 +35,18 @@ const createUser = async (req, res) => {
   }
 };
 
-module.exports = { adminLogin, createUser };
+const getAllUsers = async(req, res) => {
+    try{
+        const res = await User.find();
+
+        if(res.length == 0)
+            return res.status(404).json('No user found')
+        return res.status(200).json({ data : res, message : "User founds successfully"});
+    }
+    catch(err){
+        console.error(err);
+        res.status(404).json('Error')
+    }
+}
+
+module.exports = { adminLogin, createUser, getAllUsers };

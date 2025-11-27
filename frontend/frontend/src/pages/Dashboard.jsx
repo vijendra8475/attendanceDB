@@ -14,7 +14,7 @@ export default function Dashboard() {
       try {
         const [sRes, stRes] = await Promise.all([
           api.get("/attendance/summary").catch(() => ({ data: null })),
-          api.get("/students").catch(() => ({ data: [] })),
+          api.get("/admin/students").catch(() => ({ data: [] })),
         ]);
         if (!mounted) return;
         setSummary(sRes.data || null);
