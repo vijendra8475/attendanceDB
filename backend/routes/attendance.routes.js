@@ -1,7 +1,8 @@
 const express = require("express");
-const markAttendanceForAll = require("../controllers/attendance.controller.js");
+const { markAttendance, summary } = require("../controllers/attendance.controller");
 const router = express.Router();
 
-router.post("/mark", markAttendanceForAll);
+router.post("/mark", markAttendance);
+router.get("/summary", summary);
 
 module.exports = router;

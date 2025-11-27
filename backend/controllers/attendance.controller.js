@@ -1,56 +1,84 @@
-const User = require('../models/user.model')
-const Attendance = require('../models/user.model')
+const User = require('../models/user.model');
+const Attendance = require('../models/attendance.model');
 
-const markAttendanceForAll  = async (req, res) => {
-    try {
-        const { status } = req.body;
-
-        if (!status) return res.status(400).json({ messag: 'Status is required' })
-
-        const validStatus = ['present', 'absent']
-
-        if (!status.includes(validStatus)) return res.json(400).json({ messag: 'Invalid status' });
-
-        const users = await User.find({});
-
-        if (users.length == 0) return res.json(404).status({ message: 'No user found' })
-
-        const today = new Date().setHours(0, 0, 0, 0);
-        let createdCount = 0;
-        let skippedCount = 0;
-
-
-        for (const user of users) {
-            const already = await Attendance.findOne({
-                user: user._id,
-                date: today
-            });
-
-            if (already) {
-                skippedCount++;
-                continue;
-            }
-
-            await Attendance.create({
-                user: user._id,
-                date: today,
-                status
-            })
-
-            createdCount++;
-
-            return res.status(200).json({
-                message: "Attendance marked successfully",
-                created: createdCount,
-                skipped: skippedCount,
-                total: users.length
-            });
-
-        }
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({ message : `Server error : ${err}`})
+/**
+ * POST /attendance/mark
+ * Body: { date: "YYYY-MM-DD", present: ["userId1", "userId2", ...] }
+ * Creates attendance docs for provided present users and marks others absent.
+ */
+const markAttendance = async (req, res) => {
+  try {
+    const { date, present } = req.body;
+    if (!date || !Array.isArray(present)) {
+      return res.status(400).json({ message: 'date and present array required' });
     }
-}
 
-module.exports = markAttendanceForAll;
+    const dayStart = new Date(date);
+    dayStart.setHours(0,0,0,0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setHours(23,59,59,999);
+
+    const users = await User.find({});
+    if (!users.length) return res.status(404).json({ message: 'No users found' });
+
+    // delete existing attendances for that date (optional) OR skip existing entries
+    // We'll upsert for each user (create if not exists)
+    let created = 0;
+    let skipped = 0;
+
+    for (const u of users) {
+      const userId = u._id;
+      // check if attendance already exists for that user & date
+      const existing = await Attendance.findOne({ user: userId, date: { $gte: dayStart, $lte: dayEnd } });
+      if (existing) {
+        // update status if different
+        const newStatus = present.includes(userId.toString()) ? 'present' : 'absent';
+        if (existing.status !== newStatus) {
+          existing.status = newStatus;
+          await existing.save();
+        }
+        skipped++;
+        continue;
+      }
+
+      const status = present.includes(userId.toString()) ? 'present' : 'absent';
+      await Attendance.create({ user: userId, date: dayStart, status });
+      created++;
+    }
+
+    return res.status(200).json({
+      message: 'Attendance processed',
+      created,
+      skipped,
+      total: users.length
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error', error: err.toString() });
+  }
+};
+
+/**
+ * GET /attendance/summary
+ * Query param optional ?date=YYYY-MM-DD
+ */
+const summary = async (req, res) => {
+  try {
+    const qDate = req.query.date ? new Date(req.query.date) : new Date();
+    qDate.setHours(0,0,0,0);
+    const dayStart = qDate;
+    const dayEnd = new Date(qDate); dayEnd.setHours(23,59,59,999);
+
+    const totalStudents = await User.countDocuments();
+    const presentToday = await Attendance.countDocuments({ date: { $gte: dayStart, $lte: dayEnd }, status: 'present' });
+    const absentToday = await Attendance.countDocuments({ date: { $gte: dayStart, $lte: dayEnd }, status: 'absent' });
+
+    return res.status(200).json({ totalStudents, presentToday, absentToday });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error', error: err.toString() });
+  }
+};
+
+module.exports = { markAttendance, summary };

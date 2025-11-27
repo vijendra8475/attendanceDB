@@ -1,52 +1,41 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 import { api } from "../services/api";
-import { useNavigate } from "react-router-dom";
 
 const AuthContext = createContext();
-
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export function useAuth() { return useContext(AuthContext); }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loadingAuth, setLoadingAuth] = useState(true);
-  const navigate = useNavigate();
+  const [loadingAuth, setLoadingAuth] = useState(false);
 
-  // Try to fetch current user on mount (if backend supports)
-  useEffect(() => {
-    setLoadingAuth(false);
-  }, []);
-
-  const login = async (email, password) => {
+  const login = async ({ role = 'user', email, password }) => {
+    setLoadingAuth(true);
     try {
-      const res = await api.post("/auth/login", { email, password });
-      setUser(res.data.user || res.data);
-      return { ok: true, data: res.data };
+      if (role === 'admin') {
+        const res = await api.post("/admin/login", { email, password });
+        if (res.status === 200 && res.data.admin) {
+          setUser({ admin: true, email });
+          return { ok: true, data: res.data };
+        }
+        return { ok: false, message: res.data?.message || 'Admin login failed' };
+      } else {
+        const res = await api.post("/user/login", { email });
+        if (res.status === 200 && res.data.user) {
+          setUser(res.data.user);
+          return { ok: true, data: res.data };
+        }
+        return { ok: false, message: res.data?.message || 'User login failed' };
+      }
     } catch (err) {
-      const msg = err?.response?.data?.message || err.message;
-      return { ok: false, message: msg };
-    }
-  };
-
-  const logout = async () => {
-    try {
-      await api.post("/auth/logout");
-    } catch (e) {
-      // ignore
+      return { ok: false, message: err?.response?.data?.message || err.message };
     } finally {
-      setUser(null);
-      navigate("/");
+      setLoadingAuth(false);
     }
   };
 
-  const value = {
-    user,
-    setUser,
-    login,
-    logout,
-    loadingAuth,
+  const logout = () => {
+    setUser(null);
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, setUser, login, logout, loadingAuth }}>{children}</AuthContext.Provider>;
 }
